@@ -14,6 +14,7 @@ public class District
     public string Name { get; set; } = string.Empty;
 }
 
+// 👇 Primary key includes both the ID and the distribution key
 [PrimaryKey(nameof(Id), nameof(DistrictId))]
 public class School
 {
@@ -23,8 +24,9 @@ public class School
     public District District { get; set; } = null!;
 }
 
-[EntityTypeConfiguration(typeof(StudentConfiguration))]
+// 👇 Primary key includes both the ID and the distribution key
 [PrimaryKey(nameof(Id), nameof(DistrictId))]
+[EntityTypeConfiguration(typeof(StudentConfiguration))]
 public class Student
 {
     public Guid Id { get; set; }
@@ -40,6 +42,9 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
         Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<Student> builder
     )
     {
+        // Have to manually configure the FK to have both fields.  The `PrincipalKey`
+        // Translates to the referenced table's PK, which in this case includes both
+        // FOREIGN KEY (district_id, school_id) REFERENCES schools(district_id, id)
         builder
             .HasOne(s => s.School)
             .WithMany()
@@ -48,8 +53,9 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
     }
 }
 
-[EntityTypeConfiguration(typeof(TeacherConfiguration))]
+// 👇 Primary key includes both the ID and the distribution key
 [PrimaryKey(nameof(Id), nameof(DistrictId))]
+[EntityTypeConfiguration(typeof(TeacherConfiguration))]
 public class Teacher
 {
     public Guid Id { get; set; }

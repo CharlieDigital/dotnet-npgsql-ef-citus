@@ -2,7 +2,6 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 
 public class CitusContextFixture : IAsyncLifetime
 {
@@ -53,6 +52,7 @@ public class CitusContextFixture : IAsyncLifetime
         using var context = CreateContext();
 
         // Script the schema to console/file for manual inspection.
+        // TODO: Add some tests directly around the generated SQL.
         var sqlScript = context.Database.GenerateCreateScript();
         await File.WriteAllTextAsync("../../../../schemas/schema.sql", sqlScript);
 
