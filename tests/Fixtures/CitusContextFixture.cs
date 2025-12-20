@@ -52,7 +52,7 @@ public class CitusContextFixture : IAsyncLifetime
 
         using var context = CreateContext();
 
-        // Script the schema to console/file
+        // Script the schema to console/file for manual inspection.
         var sqlScript = context.Database.GenerateCreateScript();
         await File.WriteAllTextAsync("../../../../schemas/schema.sql", sqlScript);
 
