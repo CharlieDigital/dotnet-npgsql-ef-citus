@@ -38,6 +38,8 @@ public class CitusContextFixture : IAsyncLifetime
 
         await _citusContainer.StartAsync();
 
+        await Task.Delay(500); // Some extra buffer
+
         // Migrate the database.
         _factory = new PooledDbContextFactory<SchoolTrackContext>(
             new DbContextOptionsBuilder<SchoolTrackContext>()
@@ -51,12 +53,7 @@ public class CitusContextFixture : IAsyncLifetime
         using var context = CreateContext();
 
         // Script the schema to console/file
-        var migrator = context.Database.GetService<IMigrator>();
-        var sqlScript = migrator.GenerateScript(
-            fromMigration: null,
-            toMigration: null,
-            MigrationsSqlGenerationOptions.Idempotent
-        );
+        var sqlScript = context.Database.GenerateCreateScript();
         await File.WriteAllTextAsync("../../../../schemas/schema.sql", sqlScript);
 
         await context.Database.EnsureCreatedAsync();
