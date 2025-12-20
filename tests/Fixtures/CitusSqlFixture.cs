@@ -26,7 +26,7 @@ public class CitusSqlFixture : IAsyncLifetime
         // Create and start the container.
         _citusContainer = new ContainerBuilder()
             .WithImage("citusdata/citus:latest")
-            .WithName("citus_test_container")
+            .WithName("citus_test_container_sql")
             .WithPortBinding(5432, true)
             .WithEnvironment("POSTGRES_PASSWORD", "password")
             .WithWaitStrategy(

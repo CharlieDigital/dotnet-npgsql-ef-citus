@@ -27,7 +27,7 @@ public class CitusContextFixture : IAsyncLifetime
         // Create and start the container.
         _citusContainer = new ContainerBuilder()
             .WithImage("citusdata/citus:latest")
-            .WithName("citus_test_container")
+            .WithName("citus_test_container_ef")
             .WithPortBinding(5432, true)
             .WithEnvironment("POSTGRES_PASSWORD", "password")
             .WithWaitStrategy(
@@ -52,7 +52,11 @@ public class CitusContextFixture : IAsyncLifetime
 
         // Script the schema to console/file
         var migrator = context.Database.GetService<IMigrator>();
-        var sqlScript = context.Database.GenerateCreateScript();
+        var sqlScript = migrator.GenerateScript(
+            fromMigration: null,
+            toMigration: null,
+            MigrationsSqlGenerationOptions.Idempotent
+        );
         await File.WriteAllTextAsync("../../../../schemas/schema.sql", sqlScript);
 
         await context.Database.EnsureCreatedAsync();
