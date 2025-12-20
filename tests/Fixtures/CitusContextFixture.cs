@@ -2,6 +2,7 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 public class CitusContextFixture : IAsyncLifetime
 {
@@ -41,7 +42,7 @@ public class CitusContextFixture : IAsyncLifetime
         _factory = new PooledDbContextFactory<SchoolTrackContext>(
             new DbContextOptionsBuilder<SchoolTrackContext>()
                 .UseNpgsql(
-                    $"Host=localhost;Port={_citusContainer.GetMappedPublicPort(5432)};Username=postgres;Password=password;Database=postgres"
+                    $"Host=localhost;Port={_citusContainer.GetMappedPublicPort(5432)};Username=postgres;Password=password;Database=postgres;Include Error Detail=true"
                 )
                 .UseSnakeCaseNamingConvention()
                 .Options
@@ -49,23 +50,28 @@ public class CitusContextFixture : IAsyncLifetime
 
         using var context = CreateContext();
 
+        // Script the schema to console/file
+        var migrator = context.Database.GetService<IMigrator>();
+        var sqlScript = context.Database.GenerateCreateScript();
+        await File.WriteAllTextAsync("../../../../schemas/schema.sql", sqlScript);
+
         await context.Database.EnsureCreatedAsync();
 
-        // // Now we need to mark them as distributed tables.
-        // await context.Database.ExecuteSqlRawAsync(
-        //     "SELECT create_distributed_table('district', 'id');"
-        // );
+        // Now we need to mark them as distributed tables.
+        await context.Database.ExecuteSqlRawAsync(
+            "SELECT create_distributed_table('districts', 'id');"
+        );
 
-        // await context.Database.ExecuteSqlRawAsync(
-        //     "SELECT create_distributed_table('schools', 'district_id');"
-        // );
+        await context.Database.ExecuteSqlRawAsync(
+            "SELECT create_distributed_table('schools', 'district_id');"
+        );
 
-        // await context.Database.ExecuteSqlRawAsync(
-        //     "SELECT create_distributed_table('student', 'district_id');"
-        // );
+        await context.Database.ExecuteSqlRawAsync(
+            "SELECT create_distributed_table('students', 'district_id');"
+        );
 
-        // await context.Database.ExecuteSqlRawAsync(
-        //     "SELECT create_distributed_table('teacher', 'district_id');"
-        // );
+        await context.Database.ExecuteSqlRawAsync(
+            "SELECT create_distributed_table('teachers', 'district_id');"
+        );
     }
 }

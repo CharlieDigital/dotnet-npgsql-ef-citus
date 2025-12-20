@@ -1,6 +1,6 @@
 using Npgsql;
 
-public class CitusBaselineTests(CitusSqlFixture citus) : IClassFixture<CitusSqlFixture>
+public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSqlFixture>
 {
     [Fact]
     public void Can_Perform_Baseline_Connection()
@@ -120,8 +120,8 @@ public class CitusBaselineTests(CitusSqlFixture citus) : IClassFixture<CitusSqlF
                 id UUID,
                 name TEXT NOT NULL,
                 district_id UUID REFERENCES district(id),
-                -- 👇 Fails because we can't add the PK to schools
-                school_id UUID REFERENCES schools(id)
+                -- ❌ Fails because we can't add the reference here since the PK isn't defined yet
+                school_id UUID REFERENCES schools(district_id, id)
             );
 
             -- Add primary keys including distribution keys
@@ -177,11 +177,12 @@ public class CitusBaselineTests(CitusSqlFixture citus) : IClassFixture<CitusSqlF
             ALTER TABLE student
                 ADD PRIMARY KEY (district_id, id);
 
-            -- 👇 Add the reference constraint
+            -- 👇 Add the reference constraint with BOTH keys
             ALTER TABLE student
                 ADD CONSTRAINT fk_school
                 FOREIGN KEY (school_id, district_id)
                 REFERENCES schools(id, district_id);
+                -- 👆 The order of the keys is important here.
 
             -- Mark tables as distributed
             SELECT create_distributed_table('district', 'id');
@@ -189,6 +190,105 @@ public class CitusBaselineTests(CitusSqlFixture citus) : IClassFixture<CitusSqlF
             SELECT create_distributed_table('student', 'district_id');
         ";
 
+        command.ExecuteNonQuery();
+    }
+
+    [Fact]
+    public void Table_Can_Be_Distributed_With_Reference_In_Wrong_Order_Causes_Error()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            @"
+            -- Tables cannot be created with constraints (including primary key)
+            CREATE TABLE district (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE schools (
+                id UUID,
+                name TEXT NOT NULL,
+                district_id UUID REFERENCES district(id)
+            );
+
+            CREATE TABLE student (
+                id UUID,
+                name TEXT NOT NULL,
+                district_id UUID REFERENCES district(id),
+                -- ✅ Add the reference AFTER distribution
+                school_id UUID
+            );
+
+            -- Add primary keys including distribution keys
+            ALTER TABLE schools
+                ADD PRIMARY KEY (district_id, id);
+            ALTER TABLE student
+                ADD PRIMARY KEY (district_id, id);
+
+            -- 👇 Add the reference constraint with BOTH keys
+            ALTER TABLE student
+                ADD CONSTRAINT fk_school
+                FOREIGN KEY (school_id, district_id)
+                REFERENCES schools(district_id, id);
+                -- ❌ The order of the keys is important here; the wrong order from
+                -- line above is an error.
+
+            -- Mark tables as distributed
+            SELECT create_distributed_table('district', 'id');
+            SELECT create_distributed_table('schools', 'district_id');
+            SELECT create_distributed_table('student', 'district_id');
+        ";
+
+        // ❌ Foreign keys are supported in two cases, either in between two
+        // colocated tables including partition column in the same ordinal in the
+        // both tables or from distributed to reference tables
+        Assert.Throws<PostgresException>(() => command.ExecuteNonQuery());
+    }
+
+    [Fact]
+    public void Table_With_Reference_Using_Composite_Primary_Key_Works()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            @"
+            -- Tables cannot be created with constraints (including primary key)
+            CREATE TABLE district (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE schools (
+                id UUID,
+                name TEXT NOT NULL,
+                district_id UUID REFERENCES district(id),
+                PRIMARY KEY (district_id, id)
+            );
+
+            CREATE TABLE student (
+                id UUID,
+                name TEXT NOT NULL,
+                district_id UUID REFERENCES district(id),
+                school_id UUID,
+                PRIMARY KEY (district_id, id),
+                -- ✅ Works because the table has a composite primary key
+                FOREIGN KEY (district_id, school_id) REFERENCES schools(district_id, id)
+            );
+
+            -- Mark tables as distributed
+            SELECT create_distributed_table('district', 'id');
+            SELECT create_distributed_table('schools', 'district_id');
+            SELECT create_distributed_table('student', 'district_id');
+        ";
+
+        // This test case works because the FK includes the distribution key
         command.ExecuteNonQuery();
     }
 }
