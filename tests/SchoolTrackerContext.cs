@@ -25,7 +25,7 @@ public class School
 }
 
 // 👇 Primary key includes both the ID and the distribution key
-[PrimaryKey(nameof(Id), nameof(DistrictId))]
+[PrimaryKey(nameof(DistrictId), nameof(Id))]
 [EntityTypeConfiguration(typeof(StudentConfiguration))]
 public class Student
 {
@@ -48,13 +48,13 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
         builder
             .HasOne(s => s.School)
             .WithMany()
-            .HasForeignKey(s => new { s.Id, s.DistrictId })
-            .HasPrincipalKey(sc => new { sc.Id, sc.DistrictId });
+            .HasForeignKey(s => new { s.DistrictId, s.Id })
+            .HasPrincipalKey(sc => new { sc.DistrictId, sc.Id });
     }
 }
 
 // 👇 Primary key includes both the ID and the distribution key
-[PrimaryKey(nameof(Id), nameof(DistrictId))]
+[PrimaryKey(nameof(DistrictId), nameof(Id))]
 [EntityTypeConfiguration(typeof(TeacherConfiguration))]
 public class Teacher
 {
@@ -74,7 +74,7 @@ public class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
         builder
             .HasOne(t => t.School)
             .WithMany()
-            .HasForeignKey(t => new { t.Id, t.DistrictId })
-            .HasPrincipalKey(sc => new { sc.Id, sc.DistrictId });
+            .HasForeignKey(t => new { t.DistrictId, t.Id })
+            .HasPrincipalKey(sc => new { sc.DistrictId, sc.Id });
     }
 }

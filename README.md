@@ -6,7 +6,7 @@ This repository includes:
 
 - Test fixtures for starting Citus using [Testcontainers](https://dotnet.testcontainers.org/)
 - Integration tests working with Citus using raw SQL statements
-- INtegration tests working with Citus using EF and proper modeling to support migrations + distribution
+- Integration tests working with Citus using EF and proper modeling to support migrations + distribution
 
 ## Run The Tests
 
@@ -18,8 +18,19 @@ dotnet test --filter CitusEfTests
 
 # Direct SQL tests
 dotnet test --filter CitusDirectSqlTests
-
 ```
+
+## Key Concepts
+
+- **Distribution Key**.  This is the shard key that is used to determine which shard that a record will be located in.  In this example, we build an app for schools and thus we want to use the `district_id`.  This field must:
+  - Be included with every record that should be co-located
+  - Included on the primary key of the record
+  - Included in FK references
+
+## Examples
+
+- [ ] Auto generate idempotent distribution statements using source generators
+- [ ] Auto generate reference table statements using source generators
 
 ## Resources
 
