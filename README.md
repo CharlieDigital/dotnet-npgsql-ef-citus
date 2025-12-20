@@ -2,6 +2,12 @@
 
 A workbench for Citus.
 
+This repository includes:
+
+- Test fixtures for starting Citus using [Testcontainers](https://dotnet.testcontainers.org/)
+- Integration tests working with Citus using raw SQL statements
+- INtegration tests working with Citus using EF and proper modeling to support migrations + distribution
+
 ## Resources
 
 - [Single Node Citus](https://www.citusdata.com/blog/2021/03/20/sharding-postgres-on-a-single-citus-node/)
