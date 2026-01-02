@@ -58,6 +58,9 @@ public class CitusContextFixture : IAsyncLifetime
 
         await context.Database.EnsureCreatedAsync();
 
+        // Mark the type table as a reference table.
+        await context.Database.ExecuteSqlRawAsync("SELECT create_reference_table('school_types');");
+
         // Now we need to mark them as distributed tables.
         await context.Database.ExecuteSqlRawAsync(
             "SELECT create_distributed_table('districts', 'id');"

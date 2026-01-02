@@ -1,3 +1,4 @@
+using System.Transactions;
 using Npgsql;
 
 public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSqlFixture>
@@ -104,7 +105,6 @@ public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSql
         using var command = connection.CreateCommand();
         command.CommandText =
             @"
-            -- Tables cannot be created with constraints (including primary key)
             CREATE TABLE district (
                 id UUID PRIMARY KEY,
                 name TEXT NOT NULL
@@ -151,7 +151,6 @@ public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSql
         using var command = connection.CreateCommand();
         command.CommandText =
             @"
-            -- Tables cannot be created with constraints (including primary key)
             CREATE TABLE district (
                 id UUID PRIMARY KEY,
                 name TEXT NOT NULL
@@ -203,7 +202,6 @@ public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSql
         using var command = connection.CreateCommand();
         command.CommandText =
             @"
-            -- Tables cannot be created with constraints (including primary key)
             CREATE TABLE district (
                 id UUID PRIMARY KEY,
                 name TEXT NOT NULL
@@ -259,7 +257,6 @@ public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSql
         using var command = connection.CreateCommand();
         command.CommandText =
             @"
-            -- Tables cannot be created with constraints (including primary key)
             CREATE TABLE district (
                 id UUID PRIMARY KEY,
                 name TEXT NOT NULL
@@ -289,6 +286,339 @@ public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSql
         ";
 
         // This test case works because the FK includes the distribution key
+        command.ExecuteNonQuery();
+    }
+
+    [Fact]
+    public void Can_Create_Distributed_Table_With_Reference_Table()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE district (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_type (
+                id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_school_type PRIMARY KEY (id)
+            );
+            """;
+
+        command.ExecuteNonQuery();
+
+        command.CommandText = """
+            -- Mark tables as referenced and distributed
+            SELECT create_reference_table('school_type');
+            SELECT create_distributed_table('district', 'id');
+            """;
+
+        command.ExecuteNonQuery();
+    }
+
+    [Fact]
+    public void Fails_When_Creating_Reference_Table_When_It_Contains_Inbound_FK()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE district (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_type (
+                id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_school_type PRIMARY KEY (id)
+            );
+
+            CREATE TABLE school (
+                id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                school_type_id uuid NOT NULL,
+                CONSTRAINT pk_school PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_school_district_id_id UNIQUE (district_id, id),
+                CONSTRAINT fk_school_districts_district_id FOREIGN KEY (district_id) REFERENCES district (id) ON DELETE CASCADE,
+                CONSTRAINT fk_school_school_type_school_type_id FOREIGN KEY (school_type_id) REFERENCES school_type (id) ON DELETE CASCADE
+            );
+            """;
+
+        command.ExecuteNonQuery();
+
+        // This fails because when the distributed scheme is created, the reference
+        // table has an inbound FK that is no longer valid.
+        command.CommandText = """
+            -- Mark tables as referenced and distributed
+            SELECT create_reference_table('school_type');
+            SELECT create_distributed_table('district', 'id');
+            -- Fails on the prior statement because of the inbound FK
+            -- SELECT create_distributed_table('school', 'district_id');
+            """;
+
+        // ❌ Reference tables and local tables can only have foreign keys to reference tables and local tables
+        Assert.Throws<PostgresException>(() => command.ExecuteNonQuery());
+    }
+
+    [Fact]
+    public void Fails_When_Creating_Reference_Table_Even_After_Distributed_Table()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE district (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_type (
+                id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_school_type PRIMARY KEY (id)
+            );
+
+            CREATE TABLE school (
+                id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                school_type_id uuid NOT NULL,
+                CONSTRAINT pk_school PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_school_district_id_id UNIQUE (district_id, id),
+                CONSTRAINT fk_school_districts_district_id FOREIGN KEY (district_id) REFERENCES district (id) ON DELETE CASCADE,
+                CONSTRAINT fk_school_school_type_school_type_id FOREIGN KEY (school_type_id) REFERENCES school_type (id) ON DELETE CASCADE
+            );
+            """;
+
+        command.ExecuteNonQuery();
+
+        // This also fails because the distributed table cannot have an FK to a non-distributed
+        // or non-reference table.
+        command.CommandText = """
+            -- Mark tables as referenced and distributed
+            SELECT create_distributed_table('district', 'id');
+            SELECT create_distributed_table('school', 'district_id');
+            SELECT create_reference_table('school_type');
+            """;
+
+        // ❌ To enforce foreign keys, the referencing and referenced rows need to be stored on the same node
+        Assert.Throws<PostgresException>(() => command.ExecuteNonQuery());
+    }
+
+    [Fact]
+    public void Fails_When_Creating_In_One_Transaction()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+        // ❌ TX causes this to fail
+        using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE district (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_type (
+                id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_school_type PRIMARY KEY (id)
+            );
+
+            -- Mark tables as referenced and distributed
+            SELECT create_reference_table('school_type');
+            SELECT create_distributed_table('district', 'id');
+
+            CREATE TABLE school (
+                id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                school_type_id uuid NOT NULL,
+                CONSTRAINT pk_school PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_school_district_id_id UNIQUE (district_id, id),
+                CONSTRAINT fk_school_districts_district_id FOREIGN KEY (district_id) REFERENCES district (id) ON DELETE CASCADE
+            );
+
+            SELECT create_distributed_table('school', 'district_id');
+
+            -- ❌ Constraint can't be added in same transaction
+            ALTER TABLE school
+                ADD CONSTRAINT fk_school_school_type_school_type_id
+                FOREIGN KEY (school_type_id)
+                REFERENCES school_type(id);
+            """;
+
+        // ❌ When there is a foreign key to a reference table, Citus needs to perform all operations over a single connection per node to ensure consistency.
+        Assert.Throws<PostgresException>(() => command.ExecuteNonQuery());
+    }
+
+    [Fact]
+    public void Add_FK_To_Reference_Table_Succeeds_When_Two_Separate_Transactions()
+    {
+        var suffix = Random.Shared.GetHexString(4, true);
+
+        using var firstConnection = citus.CreateConnection();
+        firstConnection.Open();
+        // ✅ No TX so this will work
+
+        using var command = firstConnection.CreateCommand();
+        command.CommandText = $"""
+            CREATE TABLE district_{suffix} (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_type_{suffix} (
+                id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_school_type_{suffix} PRIMARY KEY (id)
+            );
+
+            -- Mark tables as referenced and distributed
+            SELECT create_reference_table('school_type_{suffix}');
+            SELECT create_distributed_table('district_{suffix}', 'id');
+
+            CREATE TABLE school_{suffix} (
+                id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                school_type_id uuid NOT NULL,
+                CONSTRAINT pk_school_{suffix} PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_school_district_id_id_{suffix} UNIQUE (district_id, id),
+                CONSTRAINT fk_school_districts_district_id_{suffix} FOREIGN KEY (district_id) REFERENCES district_{suffix} (id) ON DELETE CASCADE
+            );
+
+            SELECT create_distributed_table('school_{suffix}', 'district_id');
+
+            ALTER TABLE school_{suffix}
+                ADD CONSTRAINT fk_school_school_type_school_type_id_{suffix}
+                FOREIGN KEY (school_type_id)
+                REFERENCES school_type_{suffix}(id);
+            """;
+
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// We can reuse the connection and create another command.  But cannot use
+    /// transaction since we need the distribution to complete and then add the
+    /// constraint.
+    /// </summary>
+    [Fact]
+    public void Add_FK_To_Reference_Table_Succeeds_When_One_Connection_Two_Transactions()
+    {
+        var suffix = Random.Shared.GetHexString(4, true);
+
+        using var firstConnection = citus.CreateConnection();
+        firstConnection.Open();
+
+        using var command = firstConnection.CreateCommand();
+        command.CommandText = $"""
+            CREATE TABLE district_{suffix} (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_type_{suffix} (
+                id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_school_type_{suffix} PRIMARY KEY (id)
+            );
+
+            -- Mark tables as referenced and distributed
+            SELECT create_reference_table('school_type_{suffix}');
+            SELECT create_distributed_table('district_{suffix}', 'id');
+
+            CREATE TABLE school_{suffix} (
+                id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                school_type_id uuid NOT NULL,
+                CONSTRAINT pk_school_{suffix} PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_school_district_id_id_{suffix} UNIQUE (district_id, id),
+                CONSTRAINT fk_school_districts_district_id_{suffix} FOREIGN KEY (district_id) REFERENCES district_{suffix} (id) ON DELETE CASCADE
+            );
+
+            SELECT create_distributed_table('school_{suffix}', 'district_id');
+            """;
+
+        command.ExecuteNonQuery();
+
+        // Use same connection
+        using var secondCommand = firstConnection.CreateCommand();
+        secondCommand.CommandText = $"""
+            ALTER TABLE school_{suffix}
+                ADD CONSTRAINT fk_school_school_type_school_type_id_{suffix}
+                FOREIGN KEY (school_type_id)
+                REFERENCES school_type_{suffix}(id);
+            """;
+
+        secondCommand.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Adding the reference table AFTER the distribution table can be done with the
+    /// FK in the same operation.
+    /// </summary>
+    [Fact]
+    public void Add_Reference_Table_Succeeds_After_Adding_Distribute_Table()
+    {
+        var suffix = Random.Shared.GetHexString(4, true);
+
+        using var connection = citus.CreateConnection();
+        connection.Open();
+
+        // Using a TX causes it to fail
+        // using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            CREATE TABLE district_{suffix} (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_{suffix} (
+                id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                school_type_id uuid NOT NULL,
+                CONSTRAINT pk_school_{suffix} PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_school_district_id_id_{suffix} UNIQUE (district_id, id),
+                CONSTRAINT fk_school_districts_district_id_{suffix} FOREIGN KEY (district_id) REFERENCES district_{suffix} (id) ON DELETE CASCADE
+            );
+
+            -- Mark tables as referenced and distributed
+            SELECT create_distributed_table('district_{suffix}', 'id');
+            SELECT create_distributed_table('school_{suffix}', 'district_id');
+
+            CREATE TABLE school_type_{suffix} (
+                id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_school_type_{suffix} PRIMARY KEY (id)
+            );
+
+            -- Mark tables as referenced and distributed
+            SELECT create_reference_table('school_type_{suffix}');
+
+            ALTER TABLE school_{suffix}
+                ADD CONSTRAINT fk_school_school_type_school_type_id_{suffix}
+                FOREIGN KEY (school_type_id)
+                REFERENCES school_type_{suffix}(id);
+            """;
+
         command.ExecuteNonQuery();
     }
 }

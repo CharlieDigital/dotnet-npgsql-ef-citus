@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
 public class SchoolTrackContext(DbContextOptions options) : DbContext(options)
@@ -6,6 +7,7 @@ public class SchoolTrackContext(DbContextOptions options) : DbContext(options)
     public DbSet<School> Schools => Set<School>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
+    public DbSet<SchoolType> SchoolTypes => Set<SchoolType>();
 }
 
 public class District
@@ -22,6 +24,23 @@ public class School
     public string Name { get; set; } = string.Empty;
     public Guid DistrictId { get; set; }
     public District District { get; set; } = null!;
+    public Guid SchoolTypeId { get; set; }
+    // TODO: this fails with error "Reference tables and local tables can only have foreign keys to reference tables and local tables" when the first distributed table is created.
+    // public SchoolType SchoolType { get; set; } = null!;
+}
+
+/// <summary>
+/// An example of a reference/lookup table which does not have a distribution key
+/// (`district_id`)
+/// </summary>
+public class SchoolType
+{
+    public Guid Id { get; set; }
+
+    /// <summary>
+    /// Primary, Elementary, Middle, High, etc.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
 }
 
 // 👇 Primary key includes both the ID and the distribution key
@@ -62,6 +81,7 @@ public class Teacher
     public Guid DistrictId { get; set; }
     public District District { get; set; } = null!;
     public string Name { get; set; } = string.Empty;
+    public Guid SchoolId { get; set; }
     public School School { get; set; } = null!;
 }
 
@@ -74,7 +94,7 @@ public class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
         builder
             .HasOne(t => t.School)
             .WithMany()
-            .HasForeignKey(t => new { t.DistrictId, t.Id })
-            .HasPrincipalKey(sc => new { sc.DistrictId, sc.Id });
+            .HasForeignKey(teacher => new { teacher.DistrictId, teacher.SchoolId })
+            .HasPrincipalKey(school => new { school.DistrictId, school.Id });
     }
 }

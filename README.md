@@ -27,10 +27,13 @@ dotnet test --filter CitusDirectSqlTests
   - Included on the primary key of the record
   - Included in FK references
 
-## Examples
+## TODO
 
 - [ ] Auto generate idempotent distribution statements using source generators
 - [ ] Auto generate reference table statements using source generators
+- [ ] Implicitly generated reference tables for M2M
+- [ ] Inclusion of the distribution key into all queries (problematic for Prisma without it since the majority of queries are schema-based(easier for EF because of global query filters?))
+  - [ ] Global query filters need to be tested for navigation properties
 
 ## Resources
 
