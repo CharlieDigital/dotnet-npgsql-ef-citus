@@ -29,6 +29,9 @@ public class DealershipContext(DbContextOptions<DealershipContext> options) : Db
     }
 }
 
+/// <summary>
+/// This is the tenancy root entity representing a car dealership.
+/// </summary>
 public class Dealership
 {
     public Guid Id { get; set; }
@@ -36,8 +39,12 @@ public class Dealership
     public required string Brand { get; set; }
 }
 
+/// <summary>
+/// A vehicle is associated with a specific dealership.
+/// The primary key includes DealershipId as the distribution key.
+/// </summary>
 [PrimaryKey(nameof(DealershipId), nameof(Id))]
-[Index(nameof(Vin), IsUnique = true)]
+[Index(nameof(DealershipId), nameof(Vin), IsUnique = true)] // 👈 Note this index requires the DealershipId
 public class Vehicle
 {
     public Guid Id { get; set; }
@@ -51,6 +58,10 @@ public class Vehicle
     public required bool Used { get; set; }
 }
 
+/// <summary>
+/// An example of a distributed entity associated with a dealership via a relation
+/// to another distributed entity (Vehicle).
+/// </summary>
 [PrimaryKey(nameof(DealershipId), nameof(Id))]
 [EntityTypeConfiguration(typeof(ServiceRecordConfiguration))]
 public class ServiceRecord

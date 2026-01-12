@@ -32,6 +32,6 @@ CREATE TABLE service_records (
 CREATE INDEX ix_service_records_dealership_id_vehicle_id ON service_records (dealership_id, vehicle_id);
 
 
-CREATE UNIQUE INDEX ix_vehicles_vin ON vehicles (vin);
+CREATE UNIQUE INDEX ix_vehicles_dealership_id_vin ON vehicles (dealership_id, vin);
 
 
