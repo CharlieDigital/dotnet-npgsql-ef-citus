@@ -27,6 +27,13 @@ dotnet test --filter CitusDirectSqlTests
   - Included on the primary key of the record
   - Included in FK references
 
+## Notes
+
+```shell
+# To force remove a migration (not connected to DB)
+dotnet ef migrations remove --force
+```
+
 ## TODO
 
 - [ ] Auto generate idempotent distribution statements using source generators
