@@ -11,9 +11,9 @@ public class CitusDealershipFixture : IAsyncLifetime
 {
     private IContainer? _citusContainer;
 
-    private PooledDbContextFactory<DealershipContext>? _factory;
+    private DbContextOptions<DealershipContext>? _options;
 
-    public DealershipContext CreateContext() => _factory!.CreateDbContext();
+    public DealershipContext CreateContext() => new(_options!);
 
     public async ValueTask DisposeAsync()
     {
@@ -44,14 +44,12 @@ public class CitusDealershipFixture : IAsyncLifetime
         await Task.Delay(500); // Some extra buffer
 
         // Migrate the database.
-        _factory = new PooledDbContextFactory<DealershipContext>(
-            new DbContextOptionsBuilder<DealershipContext>()
-                .UseNpgsql(
-                    $"Host=localhost;Port={_citusContainer.GetMappedPublicPort(5432)};Username=postgres;Password=password;Database=postgres;Include Error Detail=true"
-                )
-                .UseSnakeCaseNamingConvention()
-                .Options
-        );
+        _options = new DbContextOptionsBuilder<DealershipContext>()
+            .UseNpgsql(
+                $"Host=localhost;Port={_citusContainer.GetMappedPublicPort(5432)};Username=postgres;Password=password;Database=postgres;Include Error Detail=true"
+            )
+            .UseSnakeCaseNamingConvention()
+            .Options;
 
         using var context = CreateContext();
 
@@ -60,7 +58,7 @@ public class CitusDealershipFixture : IAsyncLifetime
         var sqlScript = context.Database.GenerateCreateScript();
         await File.WriteAllTextAsync("../../../../schemas/schema.sql", sqlScript);
 
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
 
         // For this context, we want to create the distribution from the migrations.
     }

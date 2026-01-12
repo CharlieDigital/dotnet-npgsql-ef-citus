@@ -8,7 +8,7 @@ CREATE TABLE dealerships (
 
 CREATE TABLE vehicles (
     id uuid NOT NULL,
-    dealership_id uuid NOT NULL,
+    dealership_id uuid NOT NULL DEFAULT ((get_tenant()::uuid)),
     vin text NOT NULL,
     stock_number text NOT NULL,
     model text NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE vehicles (
 
 CREATE TABLE service_records (
     id uuid NOT NULL,
-    dealership_id uuid NOT NULL,
+    dealership_id uuid NOT NULL DEFAULT ((get_tenant()::uuid)),
     vehicle_id uuid NOT NULL,
     serviced_on_utc timestamp with time zone NOT NULL,
     CONSTRAINT pk_service_records PRIMARY KEY (dealership_id, id),

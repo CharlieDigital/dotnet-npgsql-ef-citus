@@ -3,9 +3,30 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 public class DealershipContext(DbContextOptions<DealershipContext> options) : DbContext(options)
 {
+    private static readonly TenancyCommandInterceptor TenancyCommandInterceptor = new();
+
     public DbSet<Dealership> Dealerships => Set<Dealership>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<ServiceRecord> ServiceRecords => Set<ServiceRecord>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
+        optionsBuilder.AddInterceptors(TenancyCommandInterceptor);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Configure DealershipId to use get_tenant() for default value on inserts
+        modelBuilder
+            .Entity<Vehicle>()
+            .Property(v => v.DealershipId)
+            .HasDefaultValueSql("(get_tenant()::uuid)");
+
+        modelBuilder
+            .Entity<ServiceRecord>()
+            .Property(s => s.DealershipId)
+            .HasDefaultValueSql("(get_tenant()::uuid)");
+    }
 }
 
 public class Dealership
