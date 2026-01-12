@@ -28,6 +28,7 @@ dotnet test --filter CitusDealershipTests
 - **Distribution Key**.  This is the shard key that is used to determine which shard that a record will be located in.  In this example, we build an app for schools and thus we want to use the `district_id`.  This field must:
   - Be included with every record that should be co-located
   - Included on the primary key of the record
+  - Included on indexes
   - Included in FK references
 
 ## Notes

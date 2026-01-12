@@ -13,8 +13,8 @@ namespace dotnet_app.Migrations
             migrationBuilder.Sql(
                 """
                 CREATE OR REPLACE FUNCTION get_tenant()
-                RETURNS text AS $$
-                SELECT NULLIF(current_setting('tx.current_tenant_id', true), '');
+                RETURNS uuid AS $$
+                SELECT NULLIF(current_setting('tx.current_tenant_id', true), '')::uuid;
                 $$ LANGUAGE SQL STABLE;
 
                 -- Function to set the tenant ID for the current transaction

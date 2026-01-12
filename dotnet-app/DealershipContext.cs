@@ -12,9 +12,24 @@ public class DealershipContext(DbContextOptions<DealershipContext> options) : Db
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.AddInterceptors(TenancyCommandInterceptor);
 
+    /// <summary>
+    /// Gets the current dealership ID from the database tenant context.
+    /// This method is mapped to the get_tenant() PostgreSQL function and can be used in LINQ queries.
+    /// </summary>
+    /// <returns>The current dealership ID as a Guid.</returns>
+    public Guid UdfGetCurrentDealershipId() =>
+        throw new NotSupportedException(
+            "This method is for use in LINQ queries only and is translated to the get_tenant() database function."
+        );
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Map the get_tenant() UDF for use in LINQ queries
+        modelBuilder
+            .HasDbFunction(typeof(DealershipContext).GetMethod(nameof(UdfGetCurrentDealershipId))!)
+            .HasName("get_tenant");
 
         // Configure DealershipId to use get_tenant() for default value on inserts
         modelBuilder

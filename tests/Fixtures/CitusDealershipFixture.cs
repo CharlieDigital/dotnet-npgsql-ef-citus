@@ -2,6 +2,7 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
 /// This fixture uses the dealership context from the standalone project which will
@@ -43,12 +44,17 @@ public class CitusDealershipFixture : IAsyncLifetime
 
         await Task.Delay(500); // Some extra buffer
 
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+
         // Migrate the database.
         _options = new DbContextOptionsBuilder<DealershipContext>()
             .UseNpgsql(
                 $"Host=localhost;Port={_citusContainer.GetMappedPublicPort(5432)};Username=postgres;Password=password;Database=postgres;Include Error Detail=true"
             )
             .UseSnakeCaseNamingConvention()
+            .EnableDetailedErrors()
+            .EnableSensitiveDataLogging()
+            .UseLoggerFactory(loggerFactory)
             .Options;
 
         using var context = CreateContext();
