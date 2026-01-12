@@ -1,8 +1,12 @@
-using System.Dynamic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-public class DealershipContext(DbContextOptions options) : DbContext(options) { }
+public class DealershipContext(DbContextOptions<DealershipContext> options) : DbContext(options)
+{
+    public DbSet<Dealership> Dealerships => Set<Dealership>();
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<ServiceRecord> ServiceRecords => Set<ServiceRecord>();
+}
 
 public class Dealership
 {
@@ -16,6 +20,8 @@ public class Dealership
 public class Vehicle
 {
     public Guid Id { get; set; }
+
+    // 👇 Distribution column
     public Guid DealershipId { get; set; }
     public required string Vin { get; set; }
     public required string StockNumber { get; set; }
@@ -29,6 +35,8 @@ public class Vehicle
 public class ServiceRecord
 {
     public Guid Id { get; set; }
+
+    // 👇 Distribution column
     public Guid DealershipId { get; set; }
     public Dealership Dealership { get; set; } = null!;
     public Guid VehicleId { get; set; }

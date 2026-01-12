@@ -8,7 +8,6 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var districts = context.Districts.ToList();
     }
 
-    /*
     [Fact]
     public async Task Can_Create_District_School_Teacher()
     {
@@ -30,7 +29,6 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
             Id = Guid.CreateVersion7(),
             Name = "George Washington High School",
             District = hamiltonTownship,
-            SchoolType = highschoolType,
         };
 
         var sandraChen = new Teacher
@@ -45,5 +43,4 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
-    */
 }

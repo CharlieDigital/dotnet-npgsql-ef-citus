@@ -1,49 +1,37 @@
-CREATE TABLE districts (
+CREATE TABLE dealerships (
     id uuid NOT NULL,
     name text NOT NULL,
-    CONSTRAINT pk_districts PRIMARY KEY (id)
+    brand text NOT NULL,
+    CONSTRAINT pk_dealerships PRIMARY KEY (id)
 );
 
 
-CREATE TABLE school_types (
+CREATE TABLE vehicles (
     id uuid NOT NULL,
-    name text NOT NULL,
-    CONSTRAINT pk_school_types PRIMARY KEY (id)
+    dealership_id uuid NOT NULL,
+    vin text NOT NULL,
+    stock_number text NOT NULL,
+    model text NOT NULL,
+    year text NOT NULL,
+    used boolean NOT NULL,
+    CONSTRAINT pk_vehicles PRIMARY KEY (dealership_id, id)
 );
 
 
-CREATE TABLE schools (
+CREATE TABLE service_records (
     id uuid NOT NULL,
-    district_id uuid NOT NULL,
-    name text NOT NULL,
-    school_type_id uuid NOT NULL,
-    CONSTRAINT pk_schools PRIMARY KEY (id, district_id),
-    CONSTRAINT ak_schools_district_id_id UNIQUE (district_id, id),
-    CONSTRAINT fk_schools_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE
+    dealership_id uuid NOT NULL,
+    vehicle_id uuid NOT NULL,
+    serviced_on_utc timestamp with time zone NOT NULL,
+    CONSTRAINT pk_service_records PRIMARY KEY (dealership_id, id),
+    CONSTRAINT fk_service_records_dealerships_dealership_id FOREIGN KEY (dealership_id) REFERENCES dealerships (id) ON DELETE CASCADE,
+    CONSTRAINT fk_service_records_vehicles_dealership_id_vehicle_id FOREIGN KEY (dealership_id, vehicle_id) REFERENCES vehicles (dealership_id, id) ON DELETE CASCADE
 );
 
 
-CREATE TABLE students (
-    id uuid NOT NULL,
-    district_id uuid NOT NULL,
-    name text NOT NULL,
-    CONSTRAINT pk_students PRIMARY KEY (district_id, id),
-    CONSTRAINT fk_students_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE,
-    CONSTRAINT fk_students_schools_district_id_id FOREIGN KEY (district_id, id) REFERENCES schools (district_id, id) ON DELETE CASCADE
-);
+CREATE INDEX ix_service_records_dealership_id_vehicle_id ON service_records (dealership_id, vehicle_id);
 
 
-CREATE TABLE teachers (
-    id uuid NOT NULL,
-    district_id uuid NOT NULL,
-    name text NOT NULL,
-    school_id uuid NOT NULL,
-    CONSTRAINT pk_teachers PRIMARY KEY (district_id, id),
-    CONSTRAINT fk_teachers_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE,
-    CONSTRAINT fk_teachers_schools_district_id_school_id FOREIGN KEY (district_id, school_id) REFERENCES schools (district_id, id) ON DELETE CASCADE
-);
-
-
-CREATE INDEX ix_teachers_district_id_school_id ON teachers (district_id, school_id);
+CREATE UNIQUE INDEX ix_vehicles_vin ON vehicles (vin);
 
 
