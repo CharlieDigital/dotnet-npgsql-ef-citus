@@ -18,6 +18,9 @@ dotnet test --filter CitusEfTests
 
 # Direct SQL tests
 dotnet test --filter CitusDirectSqlTests
+
+# EF based test with migrations
+dotnet test --filter CitusDealershipTests
 ```
 
 ## Key Concepts
