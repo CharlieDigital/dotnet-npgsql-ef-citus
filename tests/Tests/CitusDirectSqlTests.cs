@@ -621,4 +621,80 @@ public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSql
 
         command.ExecuteNonQuery();
     }
+
+    /// <summary>
+    /// Check behavior of the SET NULL cascade for FK to reference table.
+    /// </summary>
+    [Fact]
+    public void Cascade_Set_Null_Fails_With_Error_On_Schema()
+    {
+        var suffix = Random.Shared.GetHexString(4, true);
+
+        using var connection = citus.CreateConnection();
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            CREATE TABLE district_{suffix} (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE school_{suffix} (
+                id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                school_type_id uuid NOT NULL,
+                CONSTRAINT pk_school_{suffix} PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_school_district_id_id_{suffix} UNIQUE (district_id, id),
+                CONSTRAINT fk_school_districts_district_id_{suffix} FOREIGN KEY (district_id) REFERENCES district_{suffix} (id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE classroom_{suffix} (
+                id uuid NOT NULL,
+                school_id uuid NOT NULL,
+                district_id uuid NOT NULL,
+                name text NOT NULL,
+                CONSTRAINT pk_classroom_{suffix} PRIMARY KEY (id, district_id),
+                CONSTRAINT ak_classroom_school_district_id_id_{suffix} UNIQUE (district_id, id),
+                -- We are testing this constraint with ON DELETE SET NULL 👇
+                CONSTRAINT fk_classroom_school_school_id_district_id_{suffix} FOREIGN KEY (school_id, district_id) REFERENCES school_{suffix} (id, district_id) ON DELETE SET NULL
+            );
+
+            -- Mark tables as referenced and distributed
+            SELECT create_distributed_table('district_{suffix}', 'id');
+            SELECT create_distributed_table('school_{suffix}', 'district_id');
+            SELECT create_distributed_table('classroom_{suffix}', 'district_id');
+            """;
+
+        // ❌ "SET NULL or SET DEFAULT is not supported in ON DELETE operation when distribution key is included in the foreign key constraint"
+        // ❌ 0A000: cannot create foreign key constraint
+        Assert.Throws<PostgresException>(() => command.ExecuteNonQuery());
+    }
+
+    [Fact]
+    public void Can_Access_Tenancy_Udf_In_Sql()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+
+        using var tx = connection.BeginTransaction();
+
+        // Set the tenancy
+        using var setTenantCommand = connection.CreateCommand();
+        var testTenantId = Guid.NewGuid();
+        setTenantCommand.CommandText = $"SELECT set_tenant('{testTenantId}')";
+        setTenantCommand.ExecuteNonQuery();
+
+        // No select it and compare the value.
+        using var selectCommand = connection.CreateCommand();
+        selectCommand.CommandText = "SELECT get_tenant();";
+
+        var result = selectCommand.ExecuteScalar();
+
+        var parsed = Guid.TryParse(result?.ToString(), out var guidResult);
+        Assert.True(parsed);
+
+        Assert.Equal(testTenantId, guidResult);
+    }
 }

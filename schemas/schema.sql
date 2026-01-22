@@ -35,3 +35,12 @@ CREATE INDEX ix_service_records_dealership_id_vehicle_id ON service_records (dea
 CREATE UNIQUE INDEX ix_vehicles_dealership_id_vin ON vehicles (dealership_id, vin);
 
 
+ict_id, id),
+    CONSTRAINT fk_teachers_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE,
+    CONSTRAINT fk_teachers_schools_district_id_school_id FOREIGN KEY (district_id, school_id) REFERENCES schools (district_id, id) ON DELETE CASCADE
+);
+
+
+CREATE INDEX ix_teachers_district_id_school_id ON teachers (district_id, school_id);
+
+
