@@ -1,6 +1,7 @@
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
@@ -11,9 +12,10 @@ public class CitusDealershipFixture : IAsyncLifetime
 {
     private IContainer? _citusContainer;
 
-    private DbContextOptions<DealershipContext>? _options;
+    private DbContextOptionsBuilder<DealershipContext>? _optionsBuilder;
 
-    public DealershipContext CreateContext() => new(_options!);
+    public DealershipContext CreateContext(IEnumerable<IInterceptor>? interceptors = null) =>
+        new(_optionsBuilder!.AddInterceptors(interceptors ?? Array.Empty<IInterceptor>()).Options);
 
     public async ValueTask DisposeAsync()
     {
@@ -46,15 +48,14 @@ public class CitusDealershipFixture : IAsyncLifetime
         var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 
         // Migrate the database.
-        _options = new DbContextOptionsBuilder<DealershipContext>()
+        _optionsBuilder = new DbContextOptionsBuilder<DealershipContext>()
             .UseNpgsql(
                 $"Host=localhost;Port={_citusContainer.GetMappedPublicPort(5432)};Username=postgres;Password=password;Database=postgres;Include Error Detail=true"
             )
             .UseSnakeCaseNamingConvention()
             .EnableDetailedErrors()
             .EnableSensitiveDataLogging()
-            .UseLoggerFactory(loggerFactory)
-            .Options;
+            .UseLoggerFactory(loggerFactory);
 
         using var context = CreateContext();
 

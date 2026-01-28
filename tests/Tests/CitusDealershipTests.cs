@@ -60,7 +60,7 @@ public class DealershipTests(CitusDealershipFixture fixture) : IClassFixture<Cit
         }
     }
 
-    [Fact(Skip = "This doesn't work; the UDF can't read the tenant context in this setup.")]
+    [Fact(Skip = "❌ This doesn't work; the UDF can't read the tenant context in this setup.")]
     public void Can_Query_Vehicles_Using_Tenancy_Udf_In_LINQ()
     {
         using var context = fixture.CreateContext();
@@ -164,5 +164,124 @@ public class DealershipTests(CitusDealershipFixture fixture) : IClassFixture<Cit
         {
             TenancyScope.Clear();
         }
+    }
+
+    [Fact]
+    public async Task On_Delete_Set_Null_Fails_Because_Of_Distribution_Key()
+    {
+        // Set up a Dealership, Customer, and Vehicle and then delete the Vehicle.
+        // The desired behavior is that the SET NULL keeps the Customer associated
+        // with the Dealership, even if the Vehicle is deleted.
+
+        using var context = fixture.CreateContext();
+
+        var dealership = new Dealership
+        {
+            Id = Guid.NewGuid(),
+            Name = "Acme Toyota",
+            Brand = "Toyota",
+        };
+
+        context.Dealerships.Add(dealership);
+
+        var vehicle = new Vehicle
+        {
+            Id = Guid.NewGuid(),
+            DealershipId = dealership.Id,
+            Vin = "JT3HN86R8V0123456",
+            StockNumber = "TOY-001",
+            Model = "Camry",
+            Year = "2024",
+            Used = false,
+        };
+
+        context.Vehicles.Add(vehicle);
+
+        var customer = new Customer
+        {
+            Id = Guid.NewGuid(),
+            DealershipId = dealership.Id,
+            Vehicle = vehicle,
+            FirstName = "Ada",
+            LastName = "Lovelace",
+            Email = "ada.lovelace@example.com",
+        };
+
+        context.Customers.Add(customer);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Now delete the vehicle; this will fail because of the FK from customer
+        // to vehicle and the `on delete set null` behavior which is not supported
+        // for Citus distributed tables.
+        context.Vehicles.Remove(vehicle);
+
+        // ❌ Throws: "The property 'Customer.DealershipId' is defined as read-only after it has been saved, but its value has been modified or marked as modified"
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken)
+        );
+    }
+
+    /// <summary>
+    /// Here, we use a different strategy and rely on the `SetNullInterceptor` to
+    /// simulate the `ON DELETE SET NULL` behavior for distributed tables in Citus.
+    /// When a `Vehicle` is deleted, the interceptor will set the `VehicleId` column
+    /// in the `PartsOrder` table to `null`.
+    /// </summary>
+    [Fact]
+    public async Task On_Delete_Of_Vehicle_Sets_PartsOrder_VehicleId_To_Null()
+    {
+        using var context = fixture.CreateContext([new SetNullInterceptor()]);
+
+        // Set upt he dealership, vehicle, and parts order.  Then delete the
+        // vehicle.  This should set the `VehicleId` column in the `PartsOrder`
+        // table to `null`.
+        var dealership = new Dealership
+        {
+            Id = Guid.NewGuid(),
+            Name = "Acme Toyota",
+            Brand = "Toyota",
+        };
+
+        context.Dealerships.Add(dealership);
+
+        var vehicle = new Vehicle
+        {
+            Id = Guid.NewGuid(),
+            DealershipId = dealership.Id,
+            Vin = "JT3HN86R8V0123456",
+            StockNumber = "TOY-001",
+            Model = "Camry",
+            Year = "2024",
+            Used = false,
+        };
+
+        context.Vehicles.Add(vehicle);
+
+        var partsOrder = new PartsOrder
+        {
+            Id = Guid.NewGuid(),
+            DealershipId = dealership.Id,
+            VehicleId = vehicle.Id,
+            PartNumber = "PO-001",
+            Description = "Brake Pads",
+            Quantity = 4,
+        };
+
+        context.PartsOrders.Add(partsOrder);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // Now delete the vehicle; this should trigger the SetNullInterceptor
+        // and set the VehicleId in the PartsOrder to null.
+        context.Vehicles.Remove(vehicle);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // PartsOrder has composite PK (DealershipId, Id)
+        var updatedPartsOrder = await context.PartsOrders.FindAsync(
+            [partsOrder.DealershipId, partsOrder.Id],
+            TestContext.Current.CancellationToken
+        );
+
+        // ✅ The interceptor should update this correctly
+        Assert.Null(updatedPartsOrder!.VehicleId);
     }
 }

@@ -96,6 +96,38 @@ public class CitusDirectSqlTests(CitusSqlFixture citus) : IClassFixture<CitusSql
     }
 
     [Fact]
+    public void Primary_Key_With_Distribution_Key_Index_Without_Distribution_Key_Succeeds()
+    {
+        using var connection = citus.CreateConnection();
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            @"
+            CREATE TABLE district (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+
+            CREATE TABLE schools (
+                id UUID,
+                name TEXT NOT NULL,
+                district_id UUID REFERENCES district(id)
+            );
+
+            -- 👇 MUST include the partition column
+            ALTER TABLE schools
+                ADD PRIMARY KEY (district_id, id);
+
+            CREATE INDEX idx_schools_id ON schools(name);
+
+            SELECT create_distributed_table('district', 'id');
+            SELECT create_distributed_table('schools', 'district_id');
+        ";
+    }
+
+    [Fact]
     public void Table_With_Reference_Cannot_Be_Distributed()
     {
         using var connection = citus.CreateConnection();

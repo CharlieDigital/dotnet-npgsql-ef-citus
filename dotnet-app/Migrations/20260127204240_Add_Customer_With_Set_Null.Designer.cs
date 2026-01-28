@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace dotnet_app.Migrations
 {
     [DbContext(typeof(DealershipContext))]
-    partial class DealershipContextModelSnapshot : ModelSnapshot
+    [Migration("20260127204240_Add_Customer_With_Set_Null")]
+    partial class Add_Customer_With_Set_Null
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -80,43 +83,6 @@ namespace dotnet_app.Migrations
                         .HasName("pk_dealerships");
 
                     b.ToTable("dealerships", (string)null);
-                });
-
-            modelBuilder.Entity("PartsOrder", b =>
-                {
-                    b.Property<Guid>("DealershipId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("dealership_id");
-
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<string>("PartNumber")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("part_number");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("integer")
-                        .HasColumnName("quantity");
-
-                    b.Property<Guid?>("VehicleId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("vehicle_id");
-
-                    b.HasKey("DealershipId", "Id")
-                        .HasName("pk_parts_orders");
-
-                    b.HasIndex("DealershipId", "VehicleId")
-                        .HasDatabaseName("ix_parts_orders_dealership_id_vehicle_id");
-
-                    b.ToTable("parts_orders", (string)null);
                 });
 
             modelBuilder.Entity("ServiceRecord", b =>
@@ -201,16 +167,6 @@ namespace dotnet_app.Migrations
                         .HasForeignKey("DealershipId", "VehicleId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_customers_vehicles_dealership_id_vehicle_id");
-
-                    b.Navigation("Vehicle");
-                });
-
-            modelBuilder.Entity("PartsOrder", b =>
-                {
-                    b.HasOne("Vehicle", "Vehicle")
-                        .WithMany()
-                        .HasForeignKey("DealershipId", "VehicleId")
-                        .HasConstraintName("fk_parts_orders_vehicles_dealership_id_vehicle_id");
 
                     b.Navigation("Vehicle");
                 });

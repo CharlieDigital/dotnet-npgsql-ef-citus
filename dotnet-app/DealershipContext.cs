@@ -7,7 +7,9 @@ public class DealershipContext(DbContextOptions<DealershipContext> options) : Db
 
     public DbSet<Dealership> Dealerships => Set<Dealership>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<ServiceRecord> ServiceRecords => Set<ServiceRecord>();
+    public DbSet<PartsOrder> PartsOrders => Set<PartsOrder>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.AddInterceptors(TenancyCommandInterceptor);
@@ -71,6 +73,83 @@ public class Vehicle
     public required string Model { get; set; }
     public required string Year { get; set; }
     public required bool Used { get; set; }
+}
+
+/// <summary>
+/// A customer associated with a specific dealership.  A Vehicle can be sold to a
+/// Customer.  We maintain this via a junction table.  If the Vehicle is deleted,
+/// we want to keep the Customer record.  If the Customer is deleted, we want to
+/// keep the Vehicle.
+/// </summary>
+[PrimaryKey(nameof(DealershipId), nameof(Id))]
+[EntityTypeConfiguration(typeof(CustomerConfiguration))]
+public class Customer
+{
+    public Guid Id { get; set; }
+    public Guid DealershipId { get; set; }
+    public Guid? VehicleId { get; set; }
+    public Vehicle? Vehicle { get; set; }
+    public required string FirstName { get; set; }
+    public required string LastName { get; set; }
+    public required string Email { get; set; }
+}
+
+public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
+{
+    public void Configure(EntityTypeBuilder<Customer> builder)
+    {
+        // Use this to test ON DELETE CASCADE behavior
+        builder
+            .HasOne(c => c.Vehicle)
+            .WithMany()
+            .HasForeignKey(c => new { c.DealershipId, c.VehicleId })
+            .HasPrincipalKey(vehicle => new { vehicle.DealershipId, vehicle.Id })
+            .OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+/// <summary>
+/// Another table used for testing the "virtual" set null behavior via
+/// `SetNullInterceptor`.  Here, we do NOT use the `.OnDelete(DeleteBehavior.SetNull)`
+/// and instead on delete of the vehicle, we set the `VehicleId` column to `null`
+/// via the `SetNullInterceptor`.
+/// </summary>
+[PrimaryKey(nameof(DealershipId), nameof(Id))]
+[EntityTypeConfiguration(typeof(PartsOrderConfiguration))]
+public class PartsOrder
+{
+    public Guid Id { get; set; }
+    public Guid DealershipId { get; set; }
+
+    /// <summary>
+    /// The vehicle associated with this parts order. When the Vehicle is deleted,
+    /// the <see cref="SetNullInterceptor"/> will set this to null while preserving
+    /// the <see cref="DealershipId"/>.
+    /// </summary>
+    [CitusSetNullOnDelete(nameof(Vehicle))]
+    public Guid? VehicleId { get; set; }
+
+    public Vehicle? Vehicle { get; set; }
+    public required string PartNumber { get; set; }
+    public required string Description { get; set; }
+    public required int Quantity { get; set; }
+}
+
+public class PartsOrderConfiguration : IEntityTypeConfiguration<PartsOrder>
+{
+    public void Configure(EntityTypeBuilder<PartsOrder> builder)
+    {
+        // Use ClientNoAction to prevent EF Core from attempting any cascade
+        // behavior AND to prevent in-memory relationship fix-up.
+        // The SetNullInterceptor will handle setting VehicleId to null when
+        // a Vehicle is deleted.
+        builder
+            .HasOne(c => c.Vehicle)
+            .WithMany()
+            .HasForeignKey(c => new { c.DealershipId, c.VehicleId })
+            .HasPrincipalKey(vehicle => new { vehicle.DealershipId, vehicle.Id })
+            .OnDelete(DeleteBehavior.ClientNoAction);
+    }
 }
 
 /// <summary>
