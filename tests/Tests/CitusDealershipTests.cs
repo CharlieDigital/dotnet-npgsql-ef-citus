@@ -275,6 +275,8 @@ public class DealershipTests(CitusDealershipFixture fixture) : IClassFixture<Cit
         context.Vehicles.Remove(vehicle);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        context.ChangeTracker.Clear(); // Clear everything and do a read.
+
         // PartsOrder has composite PK (DealershipId, Id)
         var updatedPartsOrder = await context.PartsOrders.FindAsync(
             [partsOrder.DealershipId, partsOrder.Id],

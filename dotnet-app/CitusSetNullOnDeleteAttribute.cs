@@ -10,6 +10,9 @@ namespace Microsoft.EntityFrameworkCore;
 /// should be nulled when a principal entity is deleted. The distribution key (typically
 /// the tenant ID) remains intact, maintaining proper data isolation.
 /// </remarks>
+/// <remarks>
+/// ⚠️ This approach may not be scalable because it requires reading the entities in
+/// to mark with null.  This is probably a big footgun.
 /// <example>
 /// <code>
 /// public class PartsOrder
