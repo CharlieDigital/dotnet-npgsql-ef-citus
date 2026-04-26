@@ -23,7 +23,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
     public void Can_Deploy_Ef_Model()
     {
         using var context = citus.CreateContext();
-        // Just ensure we can connect and query the model.
+        // 👇 Baseline query against the root table to verify the model is queryable.
         var districts = context.Districts.ToList();
     }
 
@@ -33,6 +33,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Loads the teacher row by ID to confirm the graph persisted with the correct distribution key.
         var teacher = await context.Teachers.SingleAsync(
             t => t.Id == setup.TeacherId,
             TestContext.Current.CancellationToken
@@ -50,6 +51,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Tests a single reference include from Teacher to School.
         var teacher = await context
             .Teachers.Include(t => t.School)
             .SingleAsync(t => t.Id == setup.TeacherId, TestContext.Current.CancellationToken);
@@ -67,6 +69,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Tests sibling reference includes from Teacher to both School and District.
         var teacher = await context
             .Teachers.Include(t => t.School)
             .Include(t => t.District)
@@ -85,6 +88,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Tests a chained reference include from Teacher to School and then School to District.
         var teacher = await context
             .Teachers.Include(t => t.School)
             .ThenInclude(s => s.District)
@@ -106,6 +110,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Tests the same reference-include graph while forcing EF down the split-query path.
         var teacher = await context
             .Teachers.Include(t => t.School)
             .ThenInclude(s => s.District)
@@ -128,6 +133,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Tests split-query loading of the Students collection from the School root.
         var school = await context
             .Schools.Include(s => s.Students)
             .AsSplitQuery()
@@ -163,6 +169,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Tests filtering the School root with Any() on Students before split-query loading the collection.
         var school = await context
             .Schools.Where(s =>
                 s.DistrictId == setup.DistrictId
@@ -194,6 +201,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         var setup = await CreateTeacherGraphAsync();
 
         using var context = citus.CreateContext();
+        // 👇 Tests filtering Student rows by school keys while including the parent School reference.
         var students = await context
             .Students.Include(s => s.School)
             .Where(s => s.DistrictId == setup.DistrictId && s.SchoolId == setup.SchoolId)
