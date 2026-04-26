@@ -58,24 +58,16 @@ public class CitusContextFixture : IAsyncLifetime
 
         await context.Database.EnsureCreatedAsync();
 
-        // Mark the type table as a reference table.
-        await context.Database.ExecuteSqlRawAsync("SELECT create_reference_table('school_types');");
+        var setupSql = """
+            SET citus.shard_count = 2;
 
-        // Now we need to mark them as distributed tables.
-        await context.Database.ExecuteSqlRawAsync(
-            "SELECT create_distributed_table('districts', 'id');"
-        );
+            SELECT create_reference_table('school_types');
+            SELECT create_distributed_table('districts', 'id');
+            SELECT create_distributed_table('schools', 'district_id');
+            SELECT create_distributed_table('students', 'district_id');
+            SELECT create_distributed_table('teachers', 'district_id');
+            """;
 
-        await context.Database.ExecuteSqlRawAsync(
-            "SELECT create_distributed_table('schools', 'district_id');"
-        );
-
-        await context.Database.ExecuteSqlRawAsync(
-            "SELECT create_distributed_table('students', 'district_id');"
-        );
-
-        await context.Database.ExecuteSqlRawAsync(
-            "SELECT create_distributed_table('teachers', 'district_id');"
-        );
+        await context.Database.ExecuteSqlRawAsync(setupSql);
     }
 }

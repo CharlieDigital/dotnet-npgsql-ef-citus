@@ -1,67 +1,53 @@
-CREATE TABLE dealerships (
+CREATE TABLE districts (
     id uuid NOT NULL,
     name text NOT NULL,
-    brand text NOT NULL,
-    CONSTRAINT pk_dealerships PRIMARY KEY (id)
+    CONSTRAINT pk_districts PRIMARY KEY (id)
 );
 
 
-CREATE TABLE vehicles (
+CREATE TABLE school_types (
     id uuid NOT NULL,
-    dealership_id uuid NOT NULL DEFAULT ((get_tenant()::uuid)),
-    vin text NOT NULL,
-    stock_number text NOT NULL,
-    model text NOT NULL,
-    year text NOT NULL,
-    used boolean NOT NULL,
-    CONSTRAINT pk_vehicles PRIMARY KEY (dealership_id, id)
+    name text NOT NULL,
+    CONSTRAINT pk_school_types PRIMARY KEY (id)
 );
 
 
-CREATE TABLE customers (
+CREATE TABLE schools (
     id uuid NOT NULL,
-    dealership_id uuid NOT NULL,
-    vehicle_id uuid,
-    first_name text NOT NULL,
-    last_name text NOT NULL,
-    email text NOT NULL,
-    CONSTRAINT pk_customers PRIMARY KEY (dealership_id, id),
-    CONSTRAINT fk_customers_vehicles_dealership_id_vehicle_id FOREIGN KEY (dealership_id, vehicle_id) REFERENCES vehicles (dealership_id, id) ON DELETE SET NULL
+    district_id uuid NOT NULL,
+    name text NOT NULL,
+    school_type_id uuid NOT NULL,
+    CONSTRAINT pk_schools PRIMARY KEY (id, district_id),
+    CONSTRAINT ak_schools_district_id_id UNIQUE (district_id, id),
+    CONSTRAINT fk_schools_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE
 );
 
 
-CREATE TABLE parts_orders (
+CREATE TABLE students (
     id uuid NOT NULL,
-    dealership_id uuid NOT NULL,
-    vehicle_id uuid,
-    part_number text NOT NULL,
-    description text NOT NULL,
-    quantity integer NOT NULL,
-    CONSTRAINT pk_parts_orders PRIMARY KEY (dealership_id, id),
-    CONSTRAINT fk_parts_orders_vehicles_dealership_id_vehicle_id FOREIGN KEY (dealership_id, vehicle_id) REFERENCES vehicles (dealership_id, id)
+    district_id uuid NOT NULL,
+    name text NOT NULL,
+    school_id uuid NOT NULL,
+    CONSTRAINT pk_students PRIMARY KEY (district_id, id),
+    CONSTRAINT fk_students_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE,
+    CONSTRAINT fk_students_schools_district_id_school_id FOREIGN KEY (district_id, school_id) REFERENCES schools (district_id, id) ON DELETE CASCADE
 );
 
 
-CREATE TABLE service_records (
+CREATE TABLE teachers (
     id uuid NOT NULL,
-    dealership_id uuid NOT NULL DEFAULT ((get_tenant()::uuid)),
-    vehicle_id uuid NOT NULL,
-    serviced_on_utc timestamp with time zone NOT NULL,
-    CONSTRAINT pk_service_records PRIMARY KEY (dealership_id, id),
-    CONSTRAINT fk_service_records_dealerships_dealership_id FOREIGN KEY (dealership_id) REFERENCES dealerships (id) ON DELETE CASCADE,
-    CONSTRAINT fk_service_records_vehicles_dealership_id_vehicle_id FOREIGN KEY (dealership_id, vehicle_id) REFERENCES vehicles (dealership_id, id) ON DELETE CASCADE
+    district_id uuid NOT NULL,
+    name text NOT NULL,
+    school_id uuid NOT NULL,
+    CONSTRAINT pk_teachers PRIMARY KEY (district_id, id),
+    CONSTRAINT fk_teachers_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE,
+    CONSTRAINT fk_teachers_schools_district_id_school_id FOREIGN KEY (district_id, school_id) REFERENCES schools (district_id, id) ON DELETE CASCADE
 );
 
 
-CREATE INDEX ix_customers_dealership_id_vehicle_id ON customers (dealership_id, vehicle_id);
+CREATE INDEX ix_students_district_id_school_id ON students (district_id, school_id);
 
 
-CREATE INDEX ix_parts_orders_dealership_id_vehicle_id ON parts_orders (dealership_id, vehicle_id);
-
-
-CREATE INDEX ix_service_records_dealership_id_vehicle_id ON service_records (dealership_id, vehicle_id);
-
-
-CREATE UNIQUE INDEX ix_vehicles_dealership_id_vin ON vehicles (dealership_id, vin);
+CREATE INDEX ix_teachers_district_id_school_id ON teachers (district_id, school_id);
 
 

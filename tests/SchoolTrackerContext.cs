@@ -52,6 +52,7 @@ public class Student
     public Guid DistrictId { get; set; }
     public District District { get; set; } = null!;
     public string Name { get; set; } = string.Empty;
+    public Guid SchoolId { get; set; }
     public School School { get; set; } = null!;
 }
 
@@ -67,7 +68,7 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
         builder
             .HasOne(s => s.School)
             .WithMany()
-            .HasForeignKey(s => new { s.DistrictId, s.Id })
+            .HasForeignKey(s => new { s.DistrictId, s.SchoolId })
             .HasPrincipalKey(sc => new { sc.DistrictId, sc.Id });
     }
 }
