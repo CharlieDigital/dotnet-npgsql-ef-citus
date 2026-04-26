@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 
+/// <summary>
+/// Run as: dotnet test tests/tests.csproj --filter "CitusEfTests" --logger "console;verbosity=normal"
+/// SQL is emitted via xUnit diagnostic messages from the EF fixture.
+/// </summary>
 public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContextFixture>
 {
     private sealed record TeacherGraphSetup(
@@ -12,6 +16,9 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         string TeacherName
     );
 
+    /// <summary>
+    /// Run as: dotnet test tests/tests.csproj --filter "CitusEfTests.Can_Deploy_Ef_Model" --logger "console;verbosity=normal"
+    /// </summary>
     [Fact]
     public void Can_Deploy_Ef_Model()
     {
@@ -34,6 +41,9 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         Assert.Equal(setup.DistrictId, teacher.DistrictId);
     }
 
+    /// <summary>
+    /// Run as: dotnet test tests/tests.csproj --filter "CitusEfTests.Can_Query_Teacher_With_Include_School" --logger "console;verbosity=normal"
+    /// </summary>
     [Fact]
     public async Task Can_Query_Teacher_With_Include_School()
     {
@@ -87,6 +97,97 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
         Assert.Equal(setup.DistrictName, teacher.School.District.Name);
     }
 
+    /// <summary>
+    /// Run as: dotnet test tests/tests.csproj --filter "CitusEfTests.Can_Query_Teacher_With_Include_School_Then_District_AsSplitQuery" --logger "console;verbosity=normal"
+    /// </summary>
+    [Fact]
+    public async Task Can_Query_Teacher_With_Include_School_Then_District_AsSplitQuery()
+    {
+        var setup = await CreateTeacherGraphAsync();
+
+        using var context = citus.CreateContext();
+        var teacher = await context
+            .Teachers.Include(t => t.School)
+            .ThenInclude(s => s.District)
+            .AsSplitQuery()
+            .SingleAsync(t => t.Id == setup.TeacherId, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(teacher.School);
+        Assert.NotNull(teacher.School.District);
+        Assert.Equal(setup.SchoolId, teacher.School.Id);
+        Assert.Equal(setup.DistrictId, teacher.School.District.Id);
+        Assert.Equal(setup.DistrictName, teacher.School.District.Name);
+    }
+
+    /// <summary>
+    /// Run as: dotnet test tests/tests.csproj --filter "CitusEfTests.Can_Query_School_With_Students_AsSplitQuery" --logger "console;verbosity=normal"
+    /// </summary>
+    [Fact]
+    public async Task Can_Query_School_With_Students_AsSplitQuery()
+    {
+        var setup = await CreateTeacherGraphAsync();
+
+        using var context = citus.CreateContext();
+        var school = await context
+            .Schools.Include(s => s.Students)
+            .AsSplitQuery()
+            .SingleAsync(
+                s => s.DistrictId == setup.DistrictId && s.Id == setup.SchoolId,
+                TestContext.Current.CancellationToken
+            );
+
+        Assert.Equal(setup.SchoolId, school.Id);
+        Assert.Equal(setup.DistrictId, school.DistrictId);
+        Assert.Equal(setup.SchoolName, school.Name);
+        Assert.Equal(4, school.Students.Count);
+        Assert.Equal(
+            setup.StudentIds.OrderBy(id => id),
+            school.Students.Select(student => student.Id).OrderBy(id => id)
+        );
+        Assert.All(
+            school.Students,
+            student =>
+            {
+                Assert.Equal(setup.DistrictId, student.DistrictId);
+                Assert.Equal(setup.SchoolId, student.SchoolId);
+            }
+        );
+    }
+
+    /// <summary>
+    /// Run as: dotnet test tests/tests.csproj --filter "CitusEfTests.Can_Query_School_With_Students_Any_IsBused_AsSplitQuery" --logger "console;verbosity=normal"
+    /// </summary>
+    [Fact]
+    public async Task Can_Query_School_With_Students_Any_IsBused_AsSplitQuery()
+    {
+        var setup = await CreateTeacherGraphAsync();
+
+        using var context = citus.CreateContext();
+        var school = await context
+            .Schools.Where(s =>
+                s.DistrictId == setup.DistrictId
+                && s.Id == setup.SchoolId
+                && s.Students.Any(student => student.IsBused)
+            )
+            .Include(s => s.Students)
+            .AsSplitQuery()
+            .SingleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(setup.SchoolId, school.Id);
+        Assert.Equal(setup.DistrictId, school.DistrictId);
+        Assert.Equal(setup.SchoolName, school.Name);
+        Assert.Equal(4, school.Students.Count);
+        Assert.Equal(
+            setup.StudentIds.OrderBy(id => id),
+            school.Students.Select(student => student.Id).OrderBy(id => id)
+        );
+        Assert.Contains(school.Students, student => student.IsBused);
+        Assert.Contains(school.Students, student => !student.IsBused);
+    }
+
+    /// <summary>
+    /// Run as: dotnet test tests/tests.csproj --filter "CitusEfTests.Can_Query_Students_For_School" --logger "console;verbosity=normal"
+    /// </summary>
     [Fact]
     public async Task Can_Query_Students_For_School()
     {
@@ -155,6 +256,7 @@ public class CitusEfTests(CitusContextFixture citus) : IClassFixture<CitusContex
                         Id = studentId,
                         District = district,
                         Name = $"Student {index + 1} {teacherId}",
+                        IsBused = index % 2 == 0, // Just some arbitrary data
                         SchoolId = schoolId,
                         School = school,
                     }

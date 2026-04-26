@@ -14,6 +14,9 @@ public class CitusDealershipFixture : IAsyncLifetime
 
     private DbContextOptionsBuilder<DealershipContext>? _optionsBuilder;
 
+    private static void WriteSqlLog(string message) =>
+        TestContext.Current.SendDiagnosticMessage("{0}", message);
+
     public DealershipContext CreateContext(IEnumerable<IInterceptor>? interceptors = null) =>
         new(_optionsBuilder!.AddInterceptors(interceptors ?? Array.Empty<IInterceptor>()).Options);
 
@@ -45,8 +48,6 @@ public class CitusDealershipFixture : IAsyncLifetime
 
         await Task.Delay(500); // Some extra buffer
 
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-
         // Migrate the database.
         _optionsBuilder = new DbContextOptionsBuilder<DealershipContext>()
             .UseNpgsql(
@@ -55,7 +56,7 @@ public class CitusDealershipFixture : IAsyncLifetime
             .UseSnakeCaseNamingConvention()
             .EnableDetailedErrors()
             .EnableSensitiveDataLogging()
-            .UseLoggerFactory(loggerFactory);
+            .LogTo(WriteSqlLog, [DbLoggerCategory.Database.Command.Name], LogLevel.Information);
 
         using var context = CreateContext();
 

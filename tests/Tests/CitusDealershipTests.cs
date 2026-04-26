@@ -1,5 +1,10 @@
 /// <summary>
-/// Run as: dotnet run -- -filter "/*/*/*DealershipTests";
+/// Run as: dotnet test tests/tests.csproj --filter "DealershipTests" --logger "console;verbosity=normal"
+/// Examples:
+/// dotnet test tests/tests.csproj --filter "DealershipTests.Can_Deploy_Dealership_Ef_Model" --logger "console;verbosity=normal"
+/// dotnet test tests/tests.csproj --filter "DealershipTests.Can_Insert_Vehicle_With_Automatic_DealershipId_From_Tenancy_Scope" --logger "console;verbosity=normal"
+/// dotnet test tests/tests.csproj --filter "DealershipTests.On_Delete_Of_Vehicle_Sets_PartsOrder_VehicleId_To_Null" --logger "console;verbosity=normal"
+/// SQL is emitted via xUnit diagnostic messages from the EF fixture.
 /// </summary>
 public class DealershipTests(CitusDealershipFixture fixture) : IClassFixture<CitusDealershipFixture>
 {

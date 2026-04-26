@@ -27,6 +27,7 @@ CREATE TABLE students (
     id uuid NOT NULL,
     district_id uuid NOT NULL,
     name text NOT NULL,
+    is_bused boolean NOT NULL,
     school_id uuid NOT NULL,
     CONSTRAINT pk_students PRIMARY KEY (district_id, id),
     CONSTRAINT fk_students_districts_district_id FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE CASCADE,

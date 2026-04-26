@@ -24,6 +24,7 @@ public class School
     public string Name { get; set; } = string.Empty;
     public Guid DistrictId { get; set; }
     public District District { get; set; } = null!;
+    public ICollection<Student> Students { get; set; } = [];
     public Guid SchoolTypeId { get; set; }
     // TODO: this fails with error "Reference tables and local tables can only have foreign keys to reference tables and local tables" when the first distributed table is created.
     // public SchoolType SchoolType { get; set; } = null!;
@@ -52,6 +53,7 @@ public class Student
     public Guid DistrictId { get; set; }
     public District District { get; set; } = null!;
     public string Name { get; set; } = string.Empty;
+    public bool IsBused { get; set; }
     public Guid SchoolId { get; set; }
     public School School { get; set; } = null!;
 }
@@ -67,7 +69,7 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
         // FOREIGN KEY (district_id, school_id) REFERENCES schools(district_id, id)
         builder
             .HasOne(s => s.School)
-            .WithMany()
+            .WithMany(school => school.Students)
             .HasForeignKey(s => new { s.DistrictId, s.SchoolId })
             .HasPrincipalKey(sc => new { sc.DistrictId, sc.Id });
     }

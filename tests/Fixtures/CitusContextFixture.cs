@@ -2,12 +2,16 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 public class CitusContextFixture : IAsyncLifetime
 {
     private IContainer? _citusContainer;
 
     private PooledDbContextFactory<SchoolTrackContext>? _factory;
+
+    private static void WriteSqlLog(string message) =>
+        TestContext.Current.SendDiagnosticMessage("{0}", message);
 
     public SchoolTrackContext CreateContext() => _factory!.CreateDbContext();
 
@@ -46,6 +50,9 @@ public class CitusContextFixture : IAsyncLifetime
                     $"Host=localhost;Port={_citusContainer.GetMappedPublicPort(5432)};Username=postgres;Password=password;Database=postgres;Include Error Detail=true"
                 )
                 .UseSnakeCaseNamingConvention()
+                .EnableDetailedErrors()
+                .EnableSensitiveDataLogging()
+                .LogTo(WriteSqlLog, [DbLoggerCategory.Database.Command.Name], LogLevel.Information)
                 .Options
         );
 
